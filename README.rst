@@ -3,6 +3,9 @@ zapd_grab_py
 
 http://archiveteam.org/index.php?title=Zapd
 
+**BUGS: Does not download HTTPS images into warc file.**
+
+
 Install
 +++++++
 
