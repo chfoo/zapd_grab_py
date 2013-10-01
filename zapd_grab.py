@@ -16,7 +16,7 @@ _logger.setLevel(logging.DEBUG)
 
 
 class Scraper(object):
-    def __init__(self, hostname, proxy_port, out_path=None):
+    def __init__(self, hostname, proxy_port, out_path=None, timeout=300):
         super(Scraper, self).__init__()
         self._hostname = hostname
         self._proxy_port = proxy_port
@@ -24,7 +24,7 @@ class Scraper(object):
 
         self._init_proxy()
 
-        self._ghost = ghost.Ghost(ignore_ssl_errors=True, wait_timeout=60)
+        self._ghost = ghost.Ghost(ignore_ssl_errors=True, wait_timeout=timeout)
 
     def _init_proxy(self):
         _logger.debug('Initialize proxy')
@@ -43,7 +43,8 @@ class Scraper(object):
         for neighbor in root.iter('a'):
             href = neighbor.attrib.get('href')
 
-            if href and self._hostname in href:
+            if href and self._hostname in href \
+            and not href.endswith(self._hostname):
                 yield href
 
     def run(self):
@@ -56,8 +57,21 @@ class Scraper(object):
 
         # 2: Expand the "see all" links for kicks.  Also, this gives us a
         # full list of followers and followees.
-        _logger.debug('Click on see all')
-        self._ghost.click('a.see-all')
+        _logger.debug('Click on see all followers')
+        try:
+            self._ghost.click('.followers a.see-all')
+        except Exception:
+            _logger.debug('No See All followers found')
+
+        _logger.debug('Click on see all following')
+        try:
+            self._ghost.click('.following a.see-all')
+        except Exception:
+            _logger.debug('No See All following found')
+
+        # Wait a bit for images to load
+        _logger.debug('Wait for images to load')
+        time.sleep(4)
 
         next_clicks = 0
 
@@ -121,8 +135,12 @@ if __name__ == '__main__':
     arg_parser.add_argument('--proxy-port', default=8192,
         help='Port number for proxy')
     arg_parser.add_argument('--output', help='Path of warc file to output')
+    arg_parser.add_argument('--timeout',
+        help='Seconds to timeout and raise error', default=300,
+        type=int)
 
     args = arg_parser.parse_args()
 
-    scraper = Scraper(args.hostname, args.proxy_port, out_path=args.output)
+    scraper = Scraper(args.hostname, args.proxy_port, out_path=args.output,
+        timeout=args.timeout)
     scraper.run()
